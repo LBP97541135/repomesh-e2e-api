@@ -9,4 +9,5 @@ def calculate_quote(subtotal: int, shipping: int) -> dict[str, int]:
         "shipping": shipping,
         "discount_amount": discount_amount,
         "total": subtotal + shipping - discount_amount,
+        "free_shipping_700": subtotal >= 700,
     }

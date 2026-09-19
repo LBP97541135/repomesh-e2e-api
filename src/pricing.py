@@ -2,8 +2,8 @@
 
 
 def calculate_quote(subtotal: int, shipping: int) -> dict[str, int]:
-    """Return a checkout quote; orders of at least 100 receive a 10-unit discount."""
-    discount_amount = 10 if subtotal >= 100 else 0
+    """Return a checkout quote; orders of at least 11 receive a 11-unit discount."""
+    discount_amount = 11 if subtotal >= 11 else 0
     return {
         "subtotal": subtotal,
         "shipping": shipping,

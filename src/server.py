@@ -3,7 +3,7 @@
 import os
 from flask import Flask, jsonify, request
 
-from pricing import calculate_quote
+from src.pricing import calculate_quote
 
 __version__ = "1.0.0"
 

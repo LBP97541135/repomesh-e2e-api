@@ -9,6 +9,12 @@ def calculate_quote(subtotal: int, shipping: int) -> dict[str, int]:
     discount_amount = 10 if subtotal >= 100 else 0
     free_shipping = subtotal >= 1000
     final_shipping = 0 if free_shipping else shipping
+    Free shipping is applied when subtotal reaches 1000 or 1200.
+    """
+    discount_amount = 10 if subtotal >= 100 else 0
+    free_shipping_1000 = subtotal >= 1000
+    free_shipping_1200 = subtotal >= 1200
+    final_shipping = 0 if free_shipping_1000 else shipping
     
     return {
         "subtotal": subtotal,
@@ -16,4 +22,7 @@ def calculate_quote(subtotal: int, shipping: int) -> dict[str, int]:
         "discount_amount": discount_amount,
         "total": subtotal + final_shipping - discount_amount,
         "free_shipping_1000": free_shipping,
+        "free_shipping_900": subtotal >= 900,
+        "free_shipping_1000": free_shipping_1000,
+        "free_shipping_1200": free_shipping_1200,
     }

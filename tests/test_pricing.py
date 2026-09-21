@@ -13,6 +13,7 @@ class PricingTest(unittest.TestCase):
                 "shipping": 5,
                 "discount_amount": 0,
                 "total": 85,
+                "free_shipping_700": False,
                 "free_shipping_900": False,
                 "free_shipping_1000": False,
                 "free_shipping_1200": False,
@@ -28,6 +29,7 @@ class PricingTest(unittest.TestCase):
                 "shipping": 5,
                 "discount_amount": 10,
                 "total": 95,
+                "free_shipping_700": False,
                 "free_shipping_900": False,
                 "free_shipping_1000": False,
                 "free_shipping_1200": False,
@@ -40,21 +42,69 @@ class PricingTest(unittest.TestCase):
         self.assertEqual(result["discount_amount"], 10)
         # total = subtotal + shipping - discount_amount (shipping is not discounted)
         self.assertEqual(result["total"], 150 + 20 - 10)
+        self.assertEqual(result["free_shipping_700"], False)
         self.assertEqual(result["free_shipping_900"], False)
         self.assertEqual(result["free_shipping_1000"], False)
         self.assertEqual(result["free_shipping_1200"], False)
 
+    def test_free_shipping_700_at_threshold(self):
+        """Orders at exactly subtotal=700 qualify for free_shipping_700 with shipping=0."""
+        result = calculate_quote(700, 50)
+        self.assertEqual(result["free_shipping_700"], True)
+        self.assertEqual(result["free_shipping_900"], False)
+        self.assertEqual(result["free_shipping_1000"], False)
+        self.assertEqual(result["free_shipping_1200"], False)
+        self.assertEqual(result["shipping"], 0)
+        self.assertEqual(result["total"], 690)  # discount applies (700 >= 100), no shipping
+
+    def test_free_shipping_700_below_threshold(self):
+        """Orders below 700 (subtotal=699) do not qualify for free_shipping_700."""
+        result = calculate_quote(699, 50)
+        self.assertEqual(result["free_shipping_700"], False)
+        self.assertEqual(result["free_shipping_900"], False)
+        self.assertEqual(result["free_shipping_1000"], False)
+        self.assertEqual(result["free_shipping_1200"], False)
+        self.assertEqual(result["shipping"], 50)  # shipping still applies at 699
+
+    def test_free_shipping_700_above_threshold(self):
+        """Orders above 700 (subtotal=800) also get free shipping."""
+        result = calculate_quote(800, 50)
+        self.assertEqual(result["free_shipping_700"], True)
+        self.assertEqual(result["free_shipping_900"], False)
+        self.assertEqual(result["free_shipping_1000"], False)
+        self.assertEqual(result["free_shipping_1200"], False)
+        self.assertEqual(result["shipping"], 0)
+
+    def test_free_shipping_700_boundary_cases(self):
+        """Test boundary cases: 698, 700, 701."""
+        # Below threshold
+        result_698 = calculate_quote(698, 30)
+        self.assertEqual(result_698["free_shipping_700"], False)
+        self.assertEqual(result_698["shipping"], 30)
+        
+        # At threshold
+        result_700 = calculate_quote(700, 30)
+        self.assertEqual(result_700["free_shipping_700"], True)
+        self.assertEqual(result_700["shipping"], 0)
+        
+        # Above threshold
+        result_701 = calculate_quote(701, 30)
+        self.assertEqual(result_701["free_shipping_700"], True)
+        self.assertEqual(result_701["shipping"], 0)
+
     def test_free_shipping_900(self):
         """Orders with subtotal >= 900 qualify for free_shipping_900."""
         result = calculate_quote(900, 50)
+        self.assertEqual(result["free_shipping_700"], True)
         self.assertEqual(result["free_shipping_900"], True)
         self.assertEqual(result["free_shipping_1000"], False)
         self.assertEqual(result["free_shipping_1200"], False)
-        self.assertEqual(result["shipping"], 50)  # shipping still applies at 900
+        self.assertEqual(result["shipping"], 0)  # free shipping from 700
 
     def test_free_shipping_1000_at_threshold(self):
         """Orders at exactly subtotal=1000 qualify for free_shipping_1000 with shipping=0."""
         result = calculate_quote(1000, 50)
+        self.assertEqual(result["free_shipping_700"], True)
         self.assertEqual(result["free_shipping_900"], True)
         self.assertEqual(result["free_shipping_1000"], True)
         self.assertEqual(result["free_shipping_1200"], False)  # 1000 < 1200
@@ -63,13 +113,17 @@ class PricingTest(unittest.TestCase):
     def test_free_shipping_1000_below_threshold(self):
         """Orders below 1000 (subtotal=999) do not qualify for free_shipping_1000."""
         result = calculate_quote(999, 50)
+        self.assertEqual(result["free_shipping_700"], True)
+        self.assertEqual(result["free_shipping_900"], True)
         self.assertEqual(result["free_shipping_1000"], False)
         self.assertEqual(result["free_shipping_1200"], False)
-        self.assertEqual(result["shipping"], 50)
+        self.assertEqual(result["shipping"], 0)  # but free_shipping_700 applies!
 
     def test_free_shipping_1000_above_threshold(self):
         """Orders above 1000 (subtotal=1100) also get free shipping."""
         result = calculate_quote(1100, 50)
+        self.assertEqual(result["free_shipping_700"], True)
+        self.assertEqual(result["free_shipping_900"], True)
         self.assertEqual(result["free_shipping_1000"], True)
         self.assertEqual(result["free_shipping_1200"], False)  # 1100 < 1200
         self.assertEqual(result["shipping"], 0)
@@ -78,22 +132,26 @@ class PricingTest(unittest.TestCase):
         """Test boundary cases: 998, 1000, 1001."""
         # Below threshold
         result_998 = calculate_quote(998, 30)
+        self.assertEqual(result_998["free_shipping_700"], True)
         self.assertEqual(result_998["free_shipping_1000"], False)
-        self.assertEqual(result_998["shipping"], 30)
+        self.assertEqual(result_998["shipping"], 0)  # free_shipping_700 applies
         
         # At threshold
         result_1000 = calculate_quote(1000, 30)
+        self.assertEqual(result_1000["free_shipping_700"], True)
         self.assertEqual(result_1000["free_shipping_1000"], True)
         self.assertEqual(result_1000["shipping"], 0)
         
         # Above threshold
         result_1001 = calculate_quote(1001, 30)
+        self.assertEqual(result_1001["free_shipping_700"], True)
         self.assertEqual(result_1001["free_shipping_1000"], True)
         self.assertEqual(result_1001["shipping"], 0)
 
     def test_free_shipping_1200(self):
         """Orders with subtotal >= 1200 get free shipping (plus discount if >= 100)."""
         result = calculate_quote(1200, 50)
+        self.assertEqual(result["free_shipping_700"], True)
         self.assertEqual(result["free_shipping_900"], True)
         self.assertEqual(result["free_shipping_1000"], True)
         self.assertEqual(result["free_shipping_1200"], True)
@@ -104,6 +162,7 @@ class PricingTest(unittest.TestCase):
     def test_free_shipping_1200_above_threshold(self):
         """Orders well above 1200 also get free shipping."""
         result = calculate_quote(1500, 30)
+        self.assertEqual(result["free_shipping_700"], True)
         self.assertEqual(result["free_shipping_1200"], True)
         self.assertEqual(result["shipping"], 0)
         # discount also applies since 1500 >= 100
@@ -112,8 +171,9 @@ class PricingTest(unittest.TestCase):
     def test_free_shipping_1200_below_threshold(self):
         """Orders below 1200 do not get free shipping even at 1199."""
         result = calculate_quote(1199, 25)
+        self.assertEqual(result["free_shipping_700"], True)
         self.assertEqual(result["free_shipping_1200"], False)
-        self.assertEqual(result["shipping"], 0)  # but free_shipping_1000 applies!
+        self.assertEqual(result["shipping"], 0)  # but free_shipping_700 applies!
 
 
 if __name__ == "__main__":
